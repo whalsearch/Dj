@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دی‌جی ساده</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#0a0a12;color:#e2e8f0;padding:16px;line-height:1.6;overflow-x:hidden}.container{max-width:500px;margin:0 auto;text-align:center}h1{color:#f59e0b;margin-bottom:20px}.deck{background:#1e293b;border-radius:24px;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.5)}.turntable{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#334155,#0f172a);margin:20px auto;position:relative;display:flex;align-items:center;justify-content:center}.vinyl{width:150px;height:150px;border-radius:50%;background:repeating-radial-gradient(circle,#111,#222 2px);border:2px solid #444;animation:none}.spinning{animation:spin 2s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}.controls{display:flex;gap:15px;justify-content:center;margin:20px 0}.btn{background:#f59e0b;color:#111827;border:none;border-radius:50%;width:60px;height:60px;font-size:1.5rem;cursor:pointer}.btn:active{transform:scale(.95)}.slider{width:100%;margin:10px 0}.light-bar{height:20px;border-radius:10px;background:#333;margin:15px 0;overflow:hidden;position:relative}.light-fill{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(90deg,#f59e0b,#ef4444);opacity:0;transition:opacity .1s}.active{opacity:1}</style></head><body><div class="container"><h1>🎧 دی‌جی ساده</h1><div class="deck"><div class="turntable"><div class="vinyl" id="vinyl"></div></div><div class="light-bar"><div class="light-fill" id="light"></div></div><div class="controls"><button class="btn" onclick="prevTrack()">⏮</button><button class="btn" onclick="togglePlay()" id="playBtn">▶️</button><button class="btn" onclick="nextTrack()">⏭</button></div><input type="range" id="volume" class="slider" min="0" max="1" step="0.01" value="0.8"><input type="file" id="file" accept="audio/*" style="display:none"><button onclick="document.getElementById('file').click()" style="background:#334155;border:none;padding:10px 20px;border-radius:8px;color:#fff;cursor:pointer;margin-top:10px">🎵 انتخاب آهنگ</button></div></div><script>
+let audio=null, isPlaying=false, tracks=[], current=0;
+const vinyl=document.getElementById('vinyl');
+const light=document.getElementById('light');
+const playBtn=document.getElementById('playBtn');
+
+document.getElementById('file').addEventListener('change',e=>{
+  const files=e.target.files;
+  tracks=[];
+  for(let f of files){tracks.push(URL.createObjectURL(f))}
+  if(tracks.length){loadTrack(0)}
+});
+
+function loadTrack(i){
+  if(audio){audio.pause()}
+  audio=new Audio(tracks[i]);
+  audio.volume=document.getElementById('volume').value;
+  audio.addEventListener('play',()=>{vinyl.classList.add('spinning');light.classList.add('active');playBtn.textContent='⏸️'});
+  audio.addEventListener('pause',()=>{vinyl.classList.remove('spinning');light.classList.remove('active');playBtn.textContent='▶️'});
+  audio.addEventListener('ended',()=>nextTrack());
+  audio.play();
+  isPlaying=true;
+}
+
+function togglePlay(){
+  if(!audio){alert('اول یک آهنگ انتخاب کن');return}
+  if(isPlaying){audio.pause();isPlaying=false}
+  else{audio.play();isPlaying=true}
+}
+
+function nextTrack(){
+  if(tracks.length===0)return;
+  current=(current+1)%tracks.length;
+  loadTrack(current);
+}
+
+function prevTrack(){
+  if(tracks.length===0)return;
+  current=(current-1+tracks.length)%tracks.length;
+  loadTrack(current);
+}
+
+document.getElementById('volume').addEventListener('input',e=>{
+  if(audio){audio.volume=e.target.value}
+});
+</script></body></html>
