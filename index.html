@@ -1,42 +1,95 @@
-function processFrame(){
-  ctx.drawImage(video,0,0,320,240);
-  const frame=ctx.getImageData(0,0,320,240);
-  let sum=0;
-  for(let i=0;i<frame.data.length;i+=4){
-    sum += frame.data[i]; // فقط کانال قرمز
-  }
-  const avg=sum/(frame.data.length/4);
-  samples.push(avg);
-  
-  if(samples.length>200){
-    samples.shift();
-  }
-  
-  if(samples.length>100){
-    let baseline=0;
-    for(let i=0;i<samples.length;i++){baseline+=samples[i]}
-    baseline/=samples.length;
+<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اندازه‌گیری ضربان قلب</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#0a0a12;color:#e2e8f0;padding:16px;line-height:1.6;text-align:center}.container{max-width:500px;margin:0 auto}h1{color:#f59e0b;margin-bottom:15px;font-size:1.5rem}.video-box{background:#1e293b;border-radius:16px;padding:20px;margin:20px 0}.video-box video{width:100%;height:200px;object-fit:cover;border-radius:12px}.heart-rate{font-size:3rem;color:#f87171;font-weight:700;margin:15px 0}.heart-icon{display:inline-block;animation:beat 1s infinite;font-size:2rem}@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}.button{background:#f59e0b;color:#111827;border:none;border-radius:12px;padding:12px 25px;font-size:1rem;font-weight:700;cursor:pointer;margin:10px}.status{color:#94a3b8;font-size:.85rem;margin-top:10px}.guide{color:#94a3b8;font-size:.8rem;margin-top:15px}</style></head><body><div class="container"><h1>❤️ اندازه‌گیری ضربان قلب</h1><div class="video-box"><video id="video" autoplay playsinline></video></div><div class="heart-rate"><span class="heart-icon">❤️</span> <span id="bpm">--</span></div><button class="button" id="startBtn">شروع اندازه‌گیری</button><div class="status" id="status">انگشت خود را روی دوربین و فلش قرار دهید</div><div class="guide">📌 انگشت اشاره را روی لنز دوربین پشتی بگذارید، فلش روشن می‌شود.</div></div><script>
+let video=null, stream=null, analyzing=false, bpmValue=0;
+const bpmEl=document.getElementById('bpm');
+const statusEl=document.getElementById('status');
+const startBtn=document.getElementById('startBtn');
+
+startBtn.addEventListener('click', async ()=>{
+  if(analyzing){return}
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    video=document.getElementById('video');
+    video.srcObject=stream;
+    await video.play();
     
-    let count=0;
-    for(let i=3;i<samples.length;i++){
-      if(samples[i]>baseline+2 && samples[i-1]<=baseline+2 && samples[i]>samples[i-1]){
-        const now=Date.now();
-        if(now-lastPeak>200){
-          count++;
-          lastPeak=now;
+    const track=stream.getVideoTracks()[0];
+    const capabilities=track.getCapabilities();
+    if(capabilities.torch){
+      await track.applyConstraints({advanced:[{torch:true}]});
+    }
+    
+    statusEl.textContent='در حال اندازه‌گیری...';
+    analyzing=true;
+    startBtn.textContent='در حال اندازه‌گیری...';
+    measureHeartRate();
+  }catch(e){
+    statusEl.textContent='خطا در دسترسی به دوربین. لطفاً اجازه دهید.';
+  }
+});
+
+function measureHeartRate(){
+  if(!analyzing||!video)return;
+  
+  const canvas=document.createElement('canvas');
+  canvas.width=320;
+  canvas.height=240;
+  const ctx=canvas.getContext('2d');
+  
+  let samples=[];
+  let lastPeak=0;
+  
+  function processFrame(){
+    ctx.drawImage(video,0,0,320,240);
+    const frame=ctx.getImageData(0,0,320,240);
+    let sum=0;
+    for(let i=0;i<frame.data.length;i+=4){
+      sum += frame.data[i]; // فقط کانال قرمز
+    }
+    const avg=sum/(frame.data.length/4);
+    samples.push(avg);
+    
+    if(samples.length>200){
+      samples.shift();
+    }
+    
+    if(samples.length>100){
+      let baseline=0;
+      for(let i=0;i<samples.length;i++){baseline+=samples[i]}
+      baseline/=samples.length;
+      
+      let count=0;
+      for(let i=3;i<samples.length;i++){
+        if(samples[i]>baseline+2 && samples[i-1]<=baseline+2 && samples[i]>samples[i-1]){
+          const now=Date.now();
+          if(now-lastPeak>200){
+            count++;
+            lastPeak=now;
+          }
+        }
+      }
+      
+      if(count>0){
+        bpmValue=Math.round(count*6);
+        if(bpmValue>20 && bpmValue<250){
+          bpmEl.textContent=bpmValue;
         }
       }
     }
     
-    if(count>0){
-      bpmValue=Math.round(count*6);
-      if(bpmValue>20 && bpmValue<250){
-        bpmEl.textContent=bpmValue;
-      }
+    if(analyzing){
+      requestAnimationFrame(processFrame);
     }
   }
   
-  if(analyzing){
-    requestAnimationFrame(processFrame);
-  }
+  processFrame();
 }
+
+window.addEventListener('beforeunload',()=>{
+  if(stream){
+    stream.getTracks().forEach(track=>track.stop());
+  }
+});
+</script></body></html>
