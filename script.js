@@ -48,12 +48,8 @@ function setupAudio(ch){
   src.connect(analyser);
   analyser.connect(gain);
   gain.connect(ctx.destination);
-  
-  if(ch === 'A'){
-    ctxA = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
-  } else {
-    ctxB = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
-  }
+  if(ch === 'A') ctxA = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
+  else ctxB = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
 }
 
 function toggle(ch){
@@ -61,9 +57,7 @@ function toggle(ch){
   const vinyl = document.getElementById('vinyl' + ch);
   const btn = document.getElementById('btn' + ch);
   const isPlaying = ch === 'A' ? isPlayingA : isPlayingB;
-  
   if(!audio){ alert('آهنگ را انتخاب کن'); return; }
-  
   if(isPlaying){
     audio.pause();
     vinyl.classList.remove('spinning');
@@ -77,8 +71,46 @@ function toggle(ch){
     if(ch === 'A'){ isPlayingA = true; ctxA.ctx.resume(); }
     else { isPlayingB = true; ctxB.ctx.resume(); }
     detectBeat();
+    updateTime(ch);
   }
 }
+
+function seek(ch, seconds){
+  const audio = ch === 'A' ? audioA : audioB;
+  if(!audio) return;
+  audio.currentTime = Math.max(0, audio.currentTime + seconds);
+  updateTime(ch);
+}
+
+function formatTime(t){
+  if(isNaN(t)) return '00:00';
+  const m = Math.floor(t/60);
+  const s = Math.floor(t%60);
+  return (m<10?'0':'') + m + ':' + (s<10?'0':'') + s;
+}
+
+function updateTime(ch){
+  const audio = ch === 'A' ? audioA : audioB;
+  if(!audio) return;
+  const timeEl = document.getElementById('time' + ch);
+  const seekEl = document.getElementById('seek' + ch);
+  if(timeEl) timeEl.textContent = formatTime(audio.currentTime) + ' / ' + formatTime(audio.duration);
+  if(seekEl && audio.duration) seekEl.value = (audio.currentTime / audio.duration) * 100;
+}
+
+document.getElementById('seekA').addEventListener('input', e=>{
+  if(audioA && audioA.duration){
+    audioA.currentTime = (e.target.value / 100) * audioA.duration;
+    updateTime('A');
+  }
+});
+
+document.getElementById('seekB').addEventListener('input', e=>{
+  if(audioB && audioB.duration){
+    audioB.currentTime = (e.target.value / 100) * audioB.duration;
+    updateTime('B');
+  }
+});
 
 document.getElementById('volA').addEventListener('input', e=>{
   if(ctxA) ctxA.gain.gain.value = e.target.value * 3;
@@ -115,7 +147,6 @@ function drawVisualizer(intensity){
     d.x += d.vx * (intensity/40 + 0.5);
     d.y += d.vy * (intensity/40 + 0.5);
     d.rot += 0.08;
-    
     if(d.x < -20) d.x = canvas.width + 20;
     if(d.x > canvas.width + 20) d.x = -20;
     if(d.y < -20) d.y = canvas.height + 20;
@@ -163,37 +194,27 @@ function drawVisualizer(intensity){
 
 function detectBeat(){
   let bassA = 0, bassB = 0;
-  
   if(ctxA && isPlayingA){
     ctxA.analyser.getByteFrequencyData(ctxA.data);
     for(let i = 0; i < 15; i++) bassA += ctxA.data[i];
     bassA /= 15;
   }
-  
   if(ctxB && isPlayingB){
     ctxB.analyser.getByteFrequencyData(ctxB.data);
     for(let i = 0; i < 15; i++) bassB += ctxB.data[i];
     bassB /= 15;
   }
-  
   const intensity = Math.max(bassA, bassB);
   const threshold = 65;
-  
   if(intensity > threshold){
     document.body.style.background = '#1a0a2a';
-    for(let i = 0; i < 8; i++){
-      document.getElementById('dm' + i).classList.add('on');
-    }
+    for(let i = 0; i < 8; i++) document.getElementById('dm' + i).classList.add('on');
   } else {
     document.body.style.background = '#0a0a12';
-    for(let i = 0; i < 8; i++){
-      document.getElementById('dm' + i).classList.remove('on');
-    }
+    for(let i = 0; i < 8; i++) document.getElementById('dm' + i).classList.remove('on');
   }
-  
   drawVisualizer(intensity);
-  
-  if(isPlayingA || isPlayingB){
-    requestAnimationFrame(detectBeat);
-  }
+  if(isPlayingA) updateTime('A');
+  if(isPlayingB) updateTime('B');
+  if(isPlayingA || isPlayingB) requestAnimationFrame(detectBeat);
 }
