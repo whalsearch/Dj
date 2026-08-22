@@ -1,95 +1,92 @@
-<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اندازه‌گیری ضربان قلب</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#0a0a12;color:#e2e8f0;padding:16px;line-height:1.6;text-align:center}.container{max-width:500px;margin:0 auto}h1{color:#f59e0b;margin-bottom:15px;font-size:1.5rem}.video-box{background:#1e293b;border-radius:16px;padding:20px;margin:20px 0}.video-box video{width:100%;height:200px;object-fit:cover;border-radius:12px}.heart-rate{font-size:3rem;color:#f87171;font-weight:700;margin:15px 0}.heart-icon{display:inline-block;animation:beat 1s infinite;font-size:2rem}@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}.button{background:#f59e0b;color:#111827;border:none;border-radius:12px;padding:12px 25px;font-size:1rem;font-weight:700;cursor:pointer;margin:10px}.status{color:#94a3b8;font-size:.85rem;margin-top:10px}.guide{color:#94a3b8;font-size:.8rem;margin-top:15px}</style></head><body><div class="container"><h1>❤️ اندازه‌گیری ضربان قلب</h1><div class="video-box"><video id="video" autoplay playsinline></video></div><div class="heart-rate"><span class="heart-icon">❤️</span> <span id="bpm">--</span></div><button class="button" id="startBtn">شروع اندازه‌گیری</button><div class="status" id="status">انگشت خود را روی دوربین و فلش قرار دهید</div><div class="guide">📌 انگشت اشاره را روی لنز دوربین پشتی بگذارید، فلش روشن می‌شود.</div></div><script>
-let video=null, stream=null, analyzing=false, bpmValue=0;
-const bpmEl=document.getElementById('bpm');
-const statusEl=document.getElementById('status');
-const startBtn=document.getElementById('startBtn');
+<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>دی‌جی دو کاناله</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#0a0a12;color:#e2e8f0;padding:16px;line-height:1.6;overflow-x:hidden;transition:background .5s}.container{max-width:500px;margin:0 auto;text-align:center}h1{color:#f59e0b;margin-bottom:20px}.deck{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:20px 0}.deck-side{background:#1e293b;border-radius:20px;padding:15px;box-shadow:0 8px 25px rgba(0,0,0,.4)}.turntable{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,#334155,#0f172a);margin:15px auto;position:relative;display:flex;align-items:center;justify-content:center}.vinyl{width:90px;height:90px;border-radius:50%;background:repeating-radial-gradient(circle,#111,#222 2px);border:2px solid #444}.spinning{animation:spin 2s linear infinite}@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}.btn{background:#f59e0b;color:#111827;border:none;border-radius:12px;padding:10px 20px;font-size:.9rem;font-weight:700;cursor:pointer;margin:5px}.btn:active{transform:scale(.95)}.btn.small{background:#334155;color:#fff;font-size:.8rem;padding:8px 12px}.slider{width:100%;margin:8px 0}.light-bar{height:15px;border-radius:8px;background:#333;margin:10px 0;overflow:hidden}.light-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#ef4444,#3b82f6);opacity:.2;transition:opacity .1s}.light-active{opacity:1}.crossfader{width:100%;margin:20px 0}.beat-dots{display:flex;gap:5px;justify-content:center;margin:10px 0}.dot{width:8px;height:8px;border-radius:50%;background:#334155;transition:all .1s}.dot.on{background:#f59e0b;transform:scale(1.5)}.status{font-size:.8rem;color:#94a3b8;margin-top:10px}</style></head><body><div class="container"><h1>🎧 دی‌جی دو کاناله</h1><div class="deck"><div class="deck-side"><h3>کانال A</h3><div class="turntable"><div class="vinyl" id="vinylA"></div></div><button class="btn" onclick="toggleA()" id="btnA">▶️ پخش A</button><input type="range" class="slider" id="volA" min="0" max="1" step="0.01" value="0.8"><div class="beat-dots" id="dotsA"></div></div><div class="deck-side"><h3>کانال B</h3><div class="turntable"><div class="vinyl" id="vinylB"></div></div><button class="btn" onclick="toggleB()" id="btnB">▶️ پخش B</button><input type="range" class="slider" id="volB" min="0" max="1" step="0.01" value="0.8"><div class="beat-dots" id="dotsB"></div></div></div><div class="crossfader"><label>کراس‌فیدر</label><input type="range" class="slider" id="crossfade" min="0" max="1" step="0.01" value="0.5"></div><div class="light-bar"><div class="light-fill" id="light"></div></div><div class="beat-dots" id="masterDots"></div><button class="btn" onclick="document.getElementById('fileA').click()">🎵 انتخاب آهنگ A</button><button class="btn" onclick="document.getElementById('fileB').click()">🎵 انتخاب آهنگ B</button><input type="file" id="fileA" accept="audio/*" style="display:none"><input type="file" id="fileB" accept="audio/*" style="display:none"><div class="status" id="status">آهنگ انتخاب کنید و دکمه پخش را بزنید</div></div><script>
+let audioA=null,audioB=null,ctxA=null,ctxB=null;
+let isPlayingA=false,isPlayingB=false;
 
-startBtn.addEventListener('click', async ()=>{
-  if(analyzing){return}
-  try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-    });
-    video=document.getElementById('video');
-    video.srcObject=stream;
-    await video.play();
-    
-    const track=stream.getVideoTracks()[0];
-    const capabilities=track.getCapabilities();
-    if(capabilities.torch){
-      await track.applyConstraints({advanced:[{torch:true}]});
-    }
-    
-    statusEl.textContent='در حال اندازه‌گیری...';
-    analyzing=true;
-    startBtn.textContent='در حال اندازه‌گیری...';
-    measureHeartRate();
-  }catch(e){
-    statusEl.textContent='خطا در دسترسی به دوربین. لطفاً اجازه دهید.';
-  }
-});
-
-function measureHeartRate(){
-  if(!analyzing||!video)return;
-  
-  const canvas=document.createElement('canvas');
-  canvas.width=320;
-  canvas.height=240;
-  const ctx=canvas.getContext('2d');
-  
-  let samples=[];
-  let lastPeak=0;
-  
-  function processFrame(){
-    ctx.drawImage(video,0,0,320,240);
-    const frame=ctx.getImageData(0,0,320,240);
-    let sum=0;
-    for(let i=0;i<frame.data.length;i+=4){
-      sum += frame.data[i]; // فقط کانال قرمز
-    }
-    const avg=sum/(frame.data.length/4);
-    samples.push(avg);
-    
-    if(samples.length>200){
-      samples.shift();
-    }
-    
-    if(samples.length>100){
-      let baseline=0;
-      for(let i=0;i<samples.length;i++){baseline+=samples[i]}
-      baseline/=samples.length;
-      
-      let count=0;
-      for(let i=3;i<samples.length;i++){
-        if(samples[i]>baseline+2 && samples[i-1]<=baseline+2 && samples[i]>samples[i-1]){
-          const now=Date.now();
-          if(now-lastPeak>200){
-            count++;
-            lastPeak=now;
-          }
-        }
-      }
-      
-      if(count>0){
-        bpmValue=Math.round(count*6);
-        if(bpmValue>20 && bpmValue<250){
-          bpmEl.textContent=bpmValue;
-        }
-      }
-    }
-    
-    if(analyzing){
-      requestAnimationFrame(processFrame);
-    }
-  }
-  
-  processFrame();
+for(let i=0;i<6;i++){
+  document.getElementById('dotsA').innerHTML+='<div class="dot" id="da'+i+'"></div>';
+  document.getElementById('dotsB').innerHTML+='<div class="dot" id="db'+i+'"></div>';
+  document.getElementById('masterDots').innerHTML+='<div class="dot" id="dm'+i+'"></div>';
 }
 
-window.addEventListener('beforeunload',()=>{
-  if(stream){
-    stream.getTracks().forEach(track=>track.stop());
+document.getElementById('fileA').addEventListener('change',e=>{
+  if(e.target.files[0]){
+    audioA=new Audio(URL.createObjectURL(e.target.files[0]));
+    audioA.loop=true;
+    setupAudioContext(audioA,'A');
+    document.getElementById('status').textContent='کانال A آماده';
   }
 });
+
+document.getElementById('fileB').addEventListener('change',e=>{
+  if(e.target.files[0]){
+    audioB=new Audio(URL.createObjectURL(e.target.files[0]));
+    audioB.loop=true;
+    setupAudioContext(audioB,'B');
+    document.getElementById('status').textContent='کانال B آماده';
+  }
+});
+
+function setupAudioContext(audio,channel){
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const analyser=ctx.createAnalyser();
+  analyser.fftSize=128;
+  const source=ctx.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(ctx.destination);
+  if(channel==='A'){ctxA={ctx,analyser,data:new Uint8Array(analyser.frequencyBinCount)}}
+  else{ctxB={ctx,analyser,data:new Uint8Array(analyser.frequencyBinCount)}}
+}
+
+function toggleA(){
+  if(!audioA){alert('اول آهنگ A را انتخاب کن');return}
+  if(isPlayingA){audioA.pause();isPlayingA=false;document.getElementById('vinylA').classList.remove('spinning');document.getElementById('btnA').textContent='▶️ پخش A';if(ctxA)ctxA.ctx.suspend();}
+  else{audioA.play();isPlayingA=true;document.getElementById('vinylA').classList.add('spinning');document.getElementById('btnA').textContent='⏸️ توقف A';if(ctxA)ctxA.ctx.resume();detectBeat();}
+}
+
+function toggleB(){
+  if(!audioB){alert('اول آهنگ B را انتخاب کن');return}
+  if(isPlayingB){audioB.pause();isPlayingB=false;document.getElementById('vinylB').classList.remove('spinning');document.getElementById('btnB').textContent='▶️ پخش B';if(ctxB)ctxB.ctx.suspend();}
+  else{audioB.play();isPlayingB=true;document.getElementById('vinylB').classList.add('spinning');document.getElementById('btnB').textContent='⏸️ توقف B';if(ctxB)ctxB.ctx.resume();detectBeat();}
+}
+
+document.getElementById('volA').addEventListener('input',e=>{if(audioA)audioA.volume=e.target.value});
+document.getElementById('volB').addEventListener('input',e=>{if(audioB)audioB.volume=e.target.value});
+
+document.getElementById('crossfade').addEventListener('input',e=>{
+  const val=parseFloat(e.target.value);
+  if(audioA)audioA.volume=Math.max(0,1-val)*document.getElementById('volA').value;
+  if(audioB)audioB.volume=val*document.getElementById('volB').value;
+});
+
+function detectBeat(){
+  if(!isPlayingA&&!isPlayingB)return;
+  
+  let bassA=0,bassB=0;
+  if(ctxA&&isPlayingA){ctxA.analyser.getByteFrequencyData(ctxA.data);for(let i=0;i<8;i++)bassA+=ctxA.data[i];bassA/=8;}
+  if(ctxB&&isPlayingB){ctxB.analyser.getByteFrequencyData(ctxB.data);for(let i=0;i<8;i++)bassB+=ctxB.data[i];bassB/=8;}
+  
+  const threshold=70;
+  const light=document.getElementById('light');
+  
+  if(bassA>threshold||bassB>threshold){
+    light.classList.add('light-active');
+    document.body.style.background='#1a0a2a';
+    for(let i=0;i<6;i++){
+      document.getElementById('dm'+i).classList.add('on');
+      if(bassA>threshold)document.getElementById('da'+i).classList.add('on');
+      if(bassB>threshold)document.getElementById('db'+i).classList.add('on');
+    }
+  }else{
+    light.classList.remove('light-active');
+    document.body.style.background='#0a0a12';
+    for(let i=0;i<6;i++){
+      document.getElementById('dm'+i).classList.remove('on');
+      document.getElementById('da'+i).classList.remove('on');
+      document.getElementById('db'+i).classList.remove('on');
+    }
+  }
+  
+  requestAnimationFrame(detectBeat);
+}
 </script></body></html>
