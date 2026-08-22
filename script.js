@@ -5,18 +5,137 @@ for(let i=0;i<8;i++){
   document.getElementById('masterDots').innerHTML += '<div class="dot" id="dm'+i+'"></div>';
 }
 
-let diamonds=[];
-for(let i=0;i<20;i++){
-  diamonds.push({
-    x: Math.random()*500,
-    y: Math.random()*200,
-    r: Math.random()*8+4,
-    vx: Math.random()*2,
-    vy: Math.random()*2,
-    rot: Math.random()*Math.PI,
-    alpha: Math.random()*0.8+0.2,
-    color: 'hsl('+Math.random()*360+',100%,60%)'
-  });
+// WebGL
+const canvas = document.getElementById('visualizer');
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+let particleCount = 60;
+let particles = [];
+
+function resizeCanvas(){
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = 180;
+  canvas.style.width = canvas.parentElement.clientWidth + 'px';
+  canvas.style.height = '180px';
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+if(gl){
+  // Shader برنامه
+  const vsSource = `
+    attribute vec4 a_position;
+    attribute float a_size;
+    attribute vec4 a_color;
+    varying vec4 v_color;
+    uniform float u_time;
+    uniform float u_intensity;
+    void main(){
+      vec4 pos = a_position;
+      pos.x += sin(u_time + a_position.y) * 0.1 * u_intensity;
+      pos.y += cos(u_time + a_position.x) * 0.1 * u_intensity;
+      gl_Position = pos;
+      gl_PointSize = a_size * (0.5 + u_intensity);
+      v_color = a_color;
+    }
+  `;
+  const fsSource = `
+    precision mediump float;
+    varying vec4 v_color;
+    void main(){
+      float d = length(gl_PointCoord - vec2(0.5));
+      if(d > 0.5) discard;
+      float alpha = 1.0 - smoothstep(0.0, 0.5, d);
+      gl_FragColor = vec4(v_color.rgb, v_color.a * alpha);
+    }
+  `;
+
+  function createShader(type, source){
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    return shader;
+  }
+
+  const program = gl.createProgram();
+  gl.attachShader(program, createShader(gl.VERTEX_SHADER, vsSource));
+  gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fsSource));
+  gl.linkProgram(program);
+  gl.useProgram(program);
+
+  // ذرات
+  for(let i=0;i<particleCount;i++){
+    particles.push({
+      x: Math.random()*2-1,
+      y: Math.random()*2-1,
+      size: Math.random()*10+5,
+      r: Math.random(),
+      g: Math.random(),
+      b: Math.random()
+    });
+  }
+
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particleCount*2), gl.DYNAMIC_DRAW);
+
+  const colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particleCount*3), gl.DYNAMIC_DRAW);
+
+  const sizeBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particleCount), gl.DYNAMIC_DRAW);
+
+  const a_position = gl.getAttribLocation(program, 'a_position');
+  const a_size = gl.getAttribLocation(program, 'a_size');
+  const a_color = gl.getAttribLocation(program, 'a_color');
+  const u_time = gl.getUniformLocation(program, 'u_time');
+  const u_intensity = gl.getUniformLocation(program, 'u_intensity');
+
+  function drawWebGL(intensity){
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const positions = [];
+    const sizes = [];
+    const colors = [];
+
+    for(let i=0;i<particleCount;i++){
+      const p = particles[i];
+      positions.push(p.x, p.y);
+      sizes.push(p.size);
+      colors.push(p.r, p.g, p.b);
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(a_position);
+    gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sizes), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(a_size);
+    gl.vertexAttribPointer(a_size, 1, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(a_color);
+    gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, 0, 0);
+
+    gl.uniform1f(u_time, Date.now()/1000);
+    gl.uniform1f(u_intensity, intensity/255);
+
+    gl.drawArrays(gl.POINTS, 0, particleCount);
+  }
+
+  function drawCanvas(intensity){
+    const cctx = canvas.getContext('2d');
+    cctx.clearRect(0, 0, canvas.width, canvas.height);
+    cctx.fillStyle = 'rgba(0,0,0,0.4)';
+    cctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 document.getElementById('fileA').addEventListener('change', e=>{
@@ -48,12 +167,8 @@ function setupAudio(ch){
   src.connect(analyser);
   analyser.connect(gain);
   gain.connect(ctx.destination);
-  
-  if(ch === 'A'){
-    ctxA = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
-  } else {
-    ctxB = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
-  }
+  if(ch === 'A') ctxA = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
+  else ctxB = {ctx, analyser, gain, data: new Uint8Array(analyser.frequencyBinCount)};
 }
 
 function toggle(ch){
@@ -61,9 +176,7 @@ function toggle(ch){
   const vinyl = document.getElementById('vinyl' + ch);
   const btn = document.getElementById('btn' + ch);
   const isPlaying = ch === 'A' ? isPlayingA : isPlayingB;
-  
   if(!audio){ alert('آهنگ را انتخاب کن'); return; }
-  
   if(isPlaying){
     audio.pause();
     vinyl.classList.remove('spinning');
@@ -96,104 +209,28 @@ document.getElementById('crossfade').addEventListener('input', e=>{
   if(ctxB) ctxB.gain.gain.value = val * volB * 3;
 });
 
-const canvas = document.getElementById('visualizer');
-const cctx = canvas.getContext('2d');
-
-function resizeCanvas(){
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = 180;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-function drawVisualizer(intensity){
-  cctx.clearRect(0, 0, canvas.width, canvas.height);
-  cctx.fillStyle = 'rgba(0,0,0,0.4)';
-  cctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  diamonds.forEach(d => {
-    d.x += d.vx * (intensity/40 + 0.5);
-    d.y += d.vy * (intensity/40 + 0.5);
-    d.rot += 0.08;
-    
-    if(d.x < -20) d.x = canvas.width + 20;
-    if(d.x > canvas.width + 20) d.x = -20;
-    if(d.y < -20) d.y = canvas.height + 20;
-    if(d.y > canvas.height + 20) d.y = -20;
-    
-    cctx.save();
-    cctx.translate(d.x, d.y);
-    cctx.rotate(d.rot);
-    cctx.shadowColor = d.color;
-    cctx.shadowBlur = d.r * intensity / 15;
-    const size = d.r * (0.5 + intensity / 100);
-    cctx.fillStyle = d.color;
-    cctx.globalAlpha = d.alpha * (0.5 + intensity / 200);
-    cctx.beginPath();
-    for(let i = 0; i < 4; i++){
-      cctx.lineTo(Math.cos(i * Math.PI/2) * size, Math.sin(i * Math.PI/2) * size);
-    }
-    cctx.closePath();
-    cctx.fill();
-    cctx.restore();
-  });
-  
-  if(ctxA && isPlayingA){
-    ctxA.analyser.getByteFrequencyData(ctxA.data);
-    const barWidth = (canvas.width / 2) / 12;
-    for(let i = 0; i < 12; i++){
-      const val = ctxA.data[i];
-      const barHeight = (val / 255) * canvas.height * 0.8;
-      cctx.fillStyle = 'rgba(59, 130, 246, 0.6)';
-      cctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 2, barHeight);
-    }
-  }
-  
-  if(ctxB && isPlayingB){
-    ctxB.analyser.getByteFrequencyData(ctxB.data);
-    const barWidth = (canvas.width / 2) / 12;
-    for(let i = 0; i < 12; i++){
-      const val = ctxB.data[i];
-      const barHeight = (val / 255) * canvas.height * 0.8;
-      cctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
-      cctx.fillRect(canvas.width/2 + i * barWidth, canvas.height - barHeight, barWidth - 2, barHeight);
-    }
-  }
-}
-
 function detectBeat(){
   let bassA = 0, bassB = 0;
-  
   if(ctxA && isPlayingA){
     ctxA.analyser.getByteFrequencyData(ctxA.data);
     for(let i = 0; i < 15; i++) bassA += ctxA.data[i];
     bassA /= 15;
   }
-  
   if(ctxB && isPlayingB){
     ctxB.analyser.getByteFrequencyData(ctxB.data);
     for(let i = 0; i < 15; i++) bassB += ctxB.data[i];
     bassB /= 15;
   }
-  
   const intensity = Math.max(bassA, bassB);
   const threshold = 65;
-  
   if(intensity > threshold){
     document.body.style.background = '#1a0a2a';
-    for(let i = 0; i < 8; i++){
-      document.getElementById('dm' + i).classList.add('on');
-    }
+    for(let i = 0; i < 8; i++) document.getElementById('dm' + i).classList.add('on');
   } else {
     document.body.style.background = '#0a0a12';
-    for(let i = 0; i < 8; i++){
-      document.getElementById('dm' + i).classList.remove('on');
-    }
+    for(let i = 0; i < 8; i++) document.getElementById('dm' + i).classList.remove('on');
   }
-  
-  drawVisualizer(intensity);
-  
-  if(isPlayingA || isPlayingB){
-    requestAnimationFrame(detectBeat);
-  }
+  if(gl && typeof drawWebGL === 'function') drawWebGL(intensity);
+  else if(typeof drawCanvas === 'function') drawCanvas(intensity);
+  if(isPlayingA || isPlayingB) requestAnimationFrame(detectBeat);
 }
