@@ -12,10 +12,12 @@ h1{color:#f59e0b;margin-bottom:10px}
 .btn:active{transform:scale(.95)}
 .btn.small{background:#334155;color:#fff;font-size:.75rem}
 .slider{width:100%;margin:5px 0}
+.crossfader{width:100%;margin:15px 0}
+.crossfader label{font-size:.8rem;color:#94a3b8}
 .visualizer-wrap{margin:10px 0}
 .visualizer-wrap canvas{width:100%;height:180px;border-radius:10px}
 .beat-dots{display:flex;gap:4px;justify-content:center;margin:5px 0}
-.dot{width:6px;height:6px;border-radius:50%;background:#334155}
+.dot{width:6px;height:6px;border-radius:50%;background:#334155;transition:all .1s}
 .dot.on{background:#f59e0b;transform:scale(2)}
 .controls{display:flex;gap:10px;justify-content:center;margin:10px 0}
 .status{font-size:.75rem;color:#94a3b8;margin-top:5px}
