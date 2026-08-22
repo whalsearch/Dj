@@ -4,19 +4,24 @@
   <h1>🎧 دی‌جی حرفه‌ای</h1>
   
   <div class="deck">
-    <div class="deck-side" id="sideA">
+    <div class="deck-side">
       <h3>کانال A</h3>
       <div class="turntable"><div class="vinyl" id="vinylA"></div></div>
       <button class="btn" id="btnA" onclick="toggle('A')">▶️ پخش A</button>
       <input type="range" class="slider" id="volA" min="0" max="1" step="0.01" value="0.8">
     </div>
     
-    <div class="deck-side" id="sideB">
+    <div class="deck-side">
       <h3>کانال B</h3>
       <div class="turntable"><div class="vinyl" id="vinylB"></div></div>
       <button class="btn" id="btnB" onclick="toggle('B')">▶️ پخش B</button>
       <input type="range" class="slider" id="volB" min="0" max="1" step="0.01" value="0.8">
     </div>
+  </div>
+
+  <div class="crossfader">
+    <label>🎚 کراس‌فیدر</label>
+    <input type="range" class="slider" id="crossfade" min="0" max="1" step="0.01" value="0.5">
   </div>
   
   <div class="visualizer-wrap">
