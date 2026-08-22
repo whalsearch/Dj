@@ -6,7 +6,7 @@ for(let i=0;i<8;i++){
 }
 
 let diamonds=[];
-for(let i=0;i<40;i++){
+for(let i=0;i<20;i++){
   diamonds.push({
     x: Math.random()*500,
     y: Math.random()*200,
@@ -100,9 +100,8 @@ const canvas = document.getElementById('visualizer');
 const cctx = canvas.getContext('2d');
 
 function resizeCanvas(){
-  canvas.width = canvas.parentElement.clientWidth * 2;
-  canvas.height = 180 * 2;
-  canvas.style.height = '180px';
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = 180;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -136,19 +135,13 @@ function drawVisualizer(intensity){
     }
     cctx.closePath();
     cctx.fill();
-    cctx.strokeStyle = d.color;
-    cctx.lineWidth = 1;
-    cctx.globalAlpha = d.alpha * 0.5;
-    cctx.beginPath();
-    cctx.arc(0, 0, size * 1.5, 0, Math.PI * 2);
-    cctx.stroke();
     cctx.restore();
   });
   
   if(ctxA && isPlayingA){
     ctxA.analyser.getByteFrequencyData(ctxA.data);
-    const barWidth = (canvas.width / 2) / 20;
-    for(let i = 0; i < 20; i++){
+    const barWidth = (canvas.width / 2) / 12;
+    for(let i = 0; i < 12; i++){
       const val = ctxA.data[i];
       const barHeight = (val / 255) * canvas.height * 0.8;
       cctx.fillStyle = 'rgba(59, 130, 246, 0.6)';
@@ -158,8 +151,8 @@ function drawVisualizer(intensity){
   
   if(ctxB && isPlayingB){
     ctxB.analyser.getByteFrequencyData(ctxB.data);
-    const barWidth = (canvas.width / 2) / 20;
-    for(let i = 0; i < 20; i++){
+    const barWidth = (canvas.width / 2) / 12;
+    for(let i = 0; i < 12; i++){
       const val = ctxB.data[i];
       const barHeight = (val / 255) * canvas.height * 0.8;
       cctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
